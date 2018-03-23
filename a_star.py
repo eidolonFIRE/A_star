@@ -28,10 +28,11 @@ class PriorityQueue(object):
 
 
 class Board(object):
-	def __init__(self, width, height):
+	def __init__(self, width, height, scale):
 		super(Board, self).__init__()
 		self.width = width
 		self.height = height
+		self.scale = scale
 		self.walls = []
 
 
@@ -47,19 +48,21 @@ class Board(object):
 		return retval
 
 	def draw_pygame(self, display):
+		size = int(self.scale * 0.9)
+		offset = int(self.scale * 0.1)
 		for x in range(self.width):
 			for y in range(self.height):
 				if (x,y) in self.walls:
-					pygame.draw.rect(display, (180, 180, 180), (x*50+2,y*50+2,46,46))
+					pygame.draw.rect(display, (180, 180, 180), (x*self.scale+offset,y*self.scale+offset,size,size))
 				else:
-					pygame.draw.rect(display, (50, 50, 50), (x*50+2,y*50+2,46,46))
+					pygame.draw.rect(display, (50, 50, 50), (x*self.scale+offset,y*self.scale+offset,size,size))
 
 
 		
 
 class A_Star(object):
 	"""docstring for A_Star"""
-	def __init__(self, start, goal, board):
+	def __init__(self, start, goal, board, heuristic):
 		super(A_Star, self).__init__()
 		self.frontier = PriorityQueue()
 		self.frontier.push(start, 0)
@@ -75,14 +78,14 @@ class A_Star(object):
 		self.highestCost = 1
 		self.highestPriority = 2
 		self.lowestPriority = 1
+		self.heuristic = heuristic
+
+		# timers for stats
+		self.procTime = 0
 
 
 
-	def _heuristic(self, a, b):
-		(x1, y1) = a
-		(x2, y2) = b
-		delta = self._delta(self._sub(self.current,a), self._sub(self.current,self.goal)) + 1
-		return (abs(x2 - x1) + abs(y2 - y1)) * delta
+
 
 	def _cost(self, a, b):
 		return self._norm(self._sub(a,b))
@@ -115,9 +118,10 @@ class A_Star(object):
 			for move in self.board.moveOptions(current):
 				new_cost = self.cost_so_far[current] + self._cost(current, move)
 				if move not in self.cost_so_far or new_cost < self.cost_so_far[move]:
+					self.procTime += 1
 					self.highestCost = max(self.highestCost, new_cost)  # <-- for rendering purposes
 					self.cost_so_far[move] = new_cost
-					priority = new_cost + self._heuristic(move, self.goal)
+					priority = new_cost + self.heuristic(self, move, self.goal)
 					self.highestPriority = max(self.highestPriority, priority)   # <-- for rendering purposes
 					self.frontier.push(move, priority)
 					self.came_from[move] = current
@@ -142,26 +146,32 @@ class A_Star(object):
 
 	def draw_pygame(self, display):
 		# priorities
-		font = pygame.font.Font(None, 20)
+		font = pygame.font.Font(None, self.board.scale / 2)
 		for p, (x,y) in self.frontier.elements:
 			pscale = (p - self.lowestPriority) / (self.highestPriority - self.lowestPriority) * 255
-			pygame.draw.circle(display, (20,20,20), (x * 50 + 25, y * 50 + 25), 25)
+			pygame.draw.circle(display, (20,20,20), (x * self.board.scale + self.board.scale/2, y * self.board.scale + self.board.scale/2), self.board.scale / 2)
 
 			color = (max(min(pscale, 255), 0), 50, max(min(255 - pscale, 255), 0))
 
 			text = font.render("%.1f"%p, 1, color)
 			textpos = (
-				-text.get_rect().center[0] + x * 50 + 25, 
-				-text.get_rect().center[1] + y * 50 + 33)
+				-text.get_rect().center[0] + x * self.board.scale + self.board.scale / 2, 
+				-text.get_rect().center[1] + y * self.board.scale + self.board.scale * 3 / 4)
 			display.blit(text, textpos)
 
 
 		# text
-		font = pygame.font.Font(None, 25)
+		font = pygame.font.Font(None, self.board.scale * 2 / 3)
 		for (x, y), cost in self.cost_so_far.items():
 			if (x,y) in self.came_from:
 				(a,b) = self.came_from[(x,y)]
-				pygame.draw.line(display, (40,40,100), (int((a+x*2.0)/3.0*50+25),int((b+y*2.0)/3.0*50+25)), (int((a+x)/2.0*50+25),int((b+y)/2.0*50+25)), 5 )
+				# pygame.draw.line(display, (40,40,200), \
+				# 	(int((a+x*2.0)/3.0*self.board.scale+self.board.scale/2),int((b+y*2.0)/3.0*self.board.scale+self.board.scale/2)), \
+				# 	(int((a+x)/2.0*self.board.scale+self.board.scale/2),int((b+y)/2.0*self.board.scale+self.board.scale/2)), \
+				# 	4 )
+				pygame.draw.line(display, (40,40,200), \
+					(int(a*self.board.scale+self.board.scale/2),int(b*self.board.scale+self.board.scale/2)), \
+					(int(x*self.board.scale+self.board.scale/2),int(y*self.board.scale+self.board.scale/2)), 2)
 
 
 			scale = 255.0 / self.highestCost
@@ -169,6 +179,6 @@ class A_Star(object):
 
 			text = font.render("%.1f"%cost, 1, color)
 			textpos = (
-				-text.get_rect().center[0] + x * 50 + 25, 
-				-text.get_rect().center[1] + y * 50 + 13)
+				-text.get_rect().center[0] + x * self.board.scale + self.board.scale / 2, 
+				-text.get_rect().center[1] + y * self.board.scale + self.board.scale / 3)
 			display.blit(text, textpos)
