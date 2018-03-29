@@ -1,7 +1,7 @@
 import pygame
 import heapq
 import math
-
+from random import randint, random
 
 
 class PriorityQueue(object):
@@ -35,12 +35,44 @@ class Board(object):
 		self.scale = scale
 		self.walls = []
 
+		self.diagonal = True
+
+
+	def maze(self, start, goal):
+		complexity = random()
+		density = random()
+		shape = ((self.width / 2) * 2 + 1, (self.height / 2) * 2 + 1)
+		complexity = int(complexity * (5 * (shape[0] + shape[1])))
+		density    = int(density * ((shape[0] / 2) * (shape[1] / 2)))
+		Z = [[0] * shape[1] for x in range(shape[0])]
+		# generate
+		for i in range(density):
+			x, y = randint(0, shape[0] / 2 - 1) * 2, randint(0, shape[1] / 2 - 1) * 2
+			Z[x][y] = 1
+			for j in range(complexity):
+				neighbours = []
+				if x > 2:             neighbours.append((x - 2, y))
+				if x < shape[0] - 2:  neighbours.append((x + 2, y))
+				if y > 2:             neighbours.append((x, y - 2))
+				if y < shape[1] - 2:  neighbours.append((x, y + 2))
+				if len(neighbours):
+					x_,y_ = neighbours[randint(0, len(neighbours) - 1)]
+					if Z[x_][y_] == 0:
+						Z[x_][y_] = 1
+						Z[x_ + (x - x_) / 2][y_ + (y - y_) / 2] = 1
+						x, y = x_, y_
+		self.walls = []
+		for col, a in enumerate(Z):
+			for row, b in enumerate(a):
+				if Z[col][row] and (col,row) != start and (col,row) != goal:
+					self.walls.append((col,row))
+
 
 	def moveOptions(self, pos):
 		x, y = pos
 		retval = []
 		# TODO: replace with map lambda
-		for dx, dy in [(-1,0),(1,0),(0,-1),(0,1),(-1,-1),(1,-1),(-1,1),(1,1)]:
+		for dx, dy in ([(-1,0),(1,0),(0,-1),(0,1)] + ([(-1,-1),(1,-1),(-1,1),(1,1)] if self.diagonal else [])):
 			nx, ny = (x+dx, y+dy)
 			if nx >= 0 and nx < self.width and ny >= 0 and ny < self.height:
 				if (nx, ny) not in self.walls:

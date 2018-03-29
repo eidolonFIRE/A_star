@@ -1,6 +1,5 @@
 import pygame
 from time import time, sleep
-import sys
 import random
 
 import a_star
@@ -20,12 +19,23 @@ def reStartSearch(point = None):
 	global mySearch, myBoard
 	global start, goal
 	global pathData
-	global heurs, heurm
+	global heurs, heurMode
+	global searches
+	global myGui
 	if point:
 		if point not in mySearch.cost_so_far:
 			return
 	mySearch = a_star.A_Star(start, goal, myBoard, heurs[heurMode])
 	pathData = mySearch.reconstruct_path()
+
+	for key in heurs.keys():
+		searches[key] = a_star.A_Star(start, goal, myBoard, heurs[key])
+		searches[key].compute()
+
+		for idx in range(len(myGui.objects["heurs"].text)):
+			if key in myGui.objects["heurs"].text[idx]:
+				myGui.objects["heurs"].text[idx] = "{:1}{:15} cpu: {:4d}   len: {:3.1f}".format(">" if key == heurMode else "", key, searches[key].procTime, searches[key].cost_so_far[searches[key].current])
+
 
 
 def okToAddWall(point):
@@ -40,8 +50,9 @@ def okToAddWall(point):
 
 def selectHeurs(index = 0, x = 0, text = ""):
 	global heurMode
-	print("Selected Heuristic: %s"%text)
-	heurMode = text
+	textTrim = text[:15].strip()
+	print("Selected Heuristic: %s"%textTrim)
+	heurMode = textTrim
 	reStartSearch()
 
 
@@ -61,6 +72,21 @@ def addRandWalls():
 		if (x, y) not in myBoard.walls and (x,y) != goal and (x,y) != start:
 			myBoard.walls.append((x,y))
 	reStartSearch()
+
+
+def toggleDiagonals(x):
+	global myBoard
+	myBoard.diagonal = x
+	reStartSearch()
+
+def maze():
+	global myBoard, goal, start
+	myBoard.maze(goal, start)
+	reStartSearch()
+
+def setSpeed(x):
+	global speed
+	speed = x
 
 #==============================================================================
 #    Heuristics
@@ -85,12 +111,19 @@ def heuristic_directional(self, a, b):
 def heuristic_dist(self, a, b):
 	return self._cost(a,b)
 
+def heuristic_hybrid(self, a, b):
+	(x1, y1) = a
+	(x2, y2) = b
+	delta = self._delta(self._sub(self.current,a), self._sub(self.current,self.goal)) + 1
+	return (abs(x2 - x1) + abs(y2 - y1)) * 1.4 * delta
+
 
 heurs = {
 	"basic": heuristic_basic,
 	"weighted": heuristic_weighted,
 	"directional": heuristic_directional,
 	"distance": heuristic_dist,
+	"hybrid": heuristic_hybrid,
 }
 
 #==============================================================================
@@ -101,37 +134,15 @@ heurs = {
 
 simExit = False
 
-width = 40
-height = 30
+width = 50
+height = 25
 scale = 30
 
 speed = 0
-step = False
 gif = False
 
 heurMode = "basic"
 
-for idx, txt in enumerate(sys.argv):
-	if "-s" in txt:
-		if "step" in sys.argv[idx+1]:
-			step = True
-			speed = 2
-		else:
-			speed = float(sys.argv[idx+1])**2
-		
-
-	elif "-gif" in txt:
-		gif = True
-		verbose = True
-
-	elif "-dest" in txt:
-		build = "dest"
-
-	elif "-h" in txt:
-		print("\
-	s: frame delay when verbose (seconds)\n\
-	gif: save each frame using shutter\n\
-	h: print help\n")
 
 pygame.init()
 myDisplay = pygame.display.set_mode((width*scale,height*scale+200), pygame.RESIZABLE)
@@ -141,14 +152,15 @@ pygame.display.set_caption('A*')
 # setup GUI
 myGui = gui.GUI(myDisplay, (10, height*scale + 10, width * scale - 20, 180))
 
-myGui.objects["heurs"]            = gui.List((   0.5,  0.1, 0.2,  0.8), (250,250,250), heurs.keys(), selectHeurs, ["all"])
-myGui.objects["exportWalls"]      = gui.Button(( 0.1,  0.1, 0.2, 0.18), (150,150,150), "Export Walls", exportWalls, ["all"])
-myGui.objects["clrWalls"]         = gui.Button(( 0.1,  0.3, 0.2, 0.18), (150,150,150), "Clear Walls", clrWalls, ["all"])
-myGui.objects["addRandWalls"]     = gui.Button(( 0.1,  0.5, 0.2, 0.18), (150,150,150), "Add Rand Walls", addRandWalls, ["all"])
+myGui.objects["heurs"]            = gui.List(     (0.4, 0.1,  0.5,  0.8), (250,250,250), heurs.keys(), selectHeurs, ["all"])
+myGui.objects["exportWalls"]      = gui.Button(   (0.0, 0.0,  0.2, 0.18), (150,150,150), "Export Walls", exportWalls, ["all"])
+myGui.objects["clrWalls"]         = gui.Button(   (0.0, 0.2,  0.2, 0.18), (150,150,150), "Clear Walls", clrWalls, ["all"])
+myGui.objects["addRandWalls"]     = gui.Button(   (0.0, 0.4,  0.2, 0.18), (150,150,150), "Add Rand Walls", addRandWalls, ["all"])
+myGui.objects["Maze"]             = gui.Button(   (0.0, 0.6,  0.2, 0.18), (150,150,150), "Make Maze", maze, ["all"])
+myGui.objects["diagonal"]         = gui.CheckBox( (0.0, 0.8,  0.2, 0.18), (150,150,150), "Diagonal Moves", True, toggleDiagonals, ["all"])
 
-myGui.objects["Label_ProcCost"]   = gui.Button(( 0.8,  0.1, 0.2, 0.2), (150,150,150), "", None, ["all"])
-myGui.objects["Label_TravelCost"] = gui.Button(( 0.8,  0.3, 0.2, 0.2), (150,150,150), "", None, ["all"])
-myGui.objects["Label_Perf"]       = gui.Button(( 0.8,  0.5, 0.2, 0.2), (150,150,150), "", None, ["all"])
+myGui.objects["speedLabel"]       = gui.Button(   (0.22, 0.0, 0.1,  0.2), (20,20,20), "Delay", None, ["all"])
+myGui.objects["speed"]            = gui.ValueBox( (0.22, 0.2, 0.1, 0.18), (150,150,150), (0,10), 0, setSpeed, ["all"])
 
 myGui.resize((10, height*scale + 10, width * scale - 20, 180))
 
@@ -166,7 +178,12 @@ goal  = (int(width * 0.9),int(height * 0.9))
 
 mySearch = a_star.A_Star(start, goal, myBoard, heurs["basic"])
 mySearch.compute()
+
+searches = {}
+
 pathData = mySearch.reconstruct_path()
+
+
 
 mouseMode = 0
 frame = 0
@@ -174,20 +191,16 @@ frame = 0
 while not simExit:
 	time_start = time()
 
-	if not step:
+	if speed > 0:
 		frame += 1
 
-	if speed == 0 or frame % speed == 0:
+	if frame % (speed+1) == 0:
 		mySearch.compute(step=speed > 0)
 		pathData = mySearch.reconstruct_path()
 		frame += 1
 		if gif:
 			pygame.image.save(myDisplay, "screens/screen_%d.png"%frame)
-
-
-		myGui.objects["Label_ProcCost"].text = " Proc: %d" % mySearch.procTime
-		myGui.objects["Label_TravelCost"].text = "Route: %d" % mySearch.cost_so_far[mySearch.current]
-		myGui.objects["Label_Perf"].text = " Perf: %5.3f%%" % (mySearch.cost_so_far[mySearch.current] / mySearch.procTime)
+		
 
 	for event in pygame.event.get():
 		if event.type == pygame.QUIT:

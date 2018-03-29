@@ -14,7 +14,7 @@ class Button:
 		self.size = self.absRect[3]
 		pygame.draw.rect(display, self.color, self.absRect)
 		font = pygame.font.Font(None, self.size)
-		text = font.render(self.text, 1, (0,0,0))
+		text = font.render(self.text, 1, (0,0,0) if self.color[0] > 100 else (255,255,255))
 		textpos = (
 			-text.get_rect().center[0] + self.absRect[0] + self.absRect[2] * 5/10, 
 			-text.get_rect().center[1] + self.absRect[1] + self.absRect[3] * 5/10)
@@ -59,15 +59,15 @@ class List:
 #==============================================================================
 
 class ValueBox:
-	def __init__(self, rect, color, limit, handler, layers):
+	def __init__(self, rect, color, limit, value, handler, layers):
 		self.rect = rect
-		self.absRect = rect
+		self.absRect = pygame.Rect(*rect)
 		self.color = color
 		self.limit = limit
 		self.size = 0
 		self.handler = handler
 		self.layers = layers
-		self.value = 0
+		self.value = value
 	def draw(self, display):
 		self.size = self.absRect[3]
 		pygame.draw.rect(display, self.color, self.absRect)
@@ -105,8 +105,8 @@ class ValueBox:
 
 class CheckBox:
 	def __init__(self, rect, color, text, isChecked, handler, layers):
-		self.absRect = rect
 		self.rect = rect
+		self.absRect = pygame.Rect(*rect)
 		self.absRect = rect
 		self.color = color
 		self.text = text
@@ -125,9 +125,9 @@ class CheckBox:
 				[self.absRect[0] + self.absRect[2] / 10 + self.absRect[3] * 1/10, self.absRect[1] + self.absRect[3] * 2/10,
 				 self.absRect[3] * 6/10, self.absRect[3] * 6/10])
 		font = pygame.font.Font(None, self.size)
-		text = font.render(self.text, 1, (255,255,255))
+		text = font.render(self.text, 1, (0,0,0))
 		textpos = (
-			-text.get_rect().center[0] + self.absRect[0] + self.absRect[2] * 5/10, 
+			-text.get_rect().center[0] + self.absRect[0] + self.absRect[2] * 6/10, 
 			-text.get_rect().center[1] + self.absRect[1] + self.absRect[3] * 5/10)
 		display.blit(text, textpos)
 	def down(self, pos):
@@ -155,7 +155,7 @@ class GUI:
 		for key in self.objects:
 			self.objects[key].absRect = self.rectTrans(self.absRect, self.objects[key].rect)
 	def draw(self):
-		pygame.draw.rect(self.display, (60,00,00), self.absRect)
+		pygame.draw.rect(self.display, (20,20,20), self.absRect)
 		for key in self.objects.keys():
 			if self.mode in self.objects[key].layers or "all" in self.objects[key].layers:
 				self.objects[key].draw(self.display)
