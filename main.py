@@ -50,7 +50,7 @@ def okToAddWall(point):
 
 def selectHeurs(index = 0, x = 0, text = ""):
 	global heurMode
-	textTrim = text[:15].strip()
+	textTrim = text[1:15].strip()
 	print("Selected Heuristic: %s"%textTrim)
 	heurMode = textTrim
 	reStartSearch()
